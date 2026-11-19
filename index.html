@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>視界之外 · Beyond the Horizon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Michroma&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#000;
+  --star:#edebe6;
+  --dim:#8e8a84;
+  --faint:rgba(237,235,230,.14);
+  --ship:#ffc27a;
+  --cosmos:#8ec9ff;
+  --alert:#ff5a3c;
+  --sl:env(safe-area-inset-left,0px); --sr:env(safe-area-inset-right,0px);
+  --st:env(safe-area-inset-top,0px); --sb:env(safe-area-inset-bottom,0px);
+  --ui:'Noto Sans TC',system-ui,sans-serif;
+  --mark:'Michroma','Noto Sans TC',sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--void);color:var(--star);font-family:var(--ui);overflow:hidden;
+  -webkit-font-smoothing:antialiased;touch-action:none;user-select:none;-webkit-user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,[tabindex]:focus-visible{outline:1px solid var(--star);outline-offset:4px}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hidden{display:none!important}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- clocks (always on) ---------- */
+#clocks{position:fixed;right:calc(var(--sr) + 28px);top:calc(var(--st) + 24px);text-align:right;z-index:5;pointer-events:none;text-shadow:0 0 12px #000,0 0 3px #000}
+/* a soft dark field behind the clocks, so they read on the bridge's white walls and Mars' bright sky */
+#clocks::before{content:'';position:absolute;right:-28px;top:-24px;width:min(440px,60vw);height:150px;z-index:-1;pointer-events:none;background:radial-gradient(ellipse 100% 100% at 100% 0,rgba(4,6,9,.7),rgba(4,6,9,.38) 45%,rgba(4,6,9,0) 78%)}
+.clk{display:flex;align-items:baseline;justify-content:flex-end;gap:14px;line-height:1.5}
+.clk .k{font-size:12px;color:var(--dim);letter-spacing:.08em}
+.clk .v{font-size:17px;font-weight:300;letter-spacing:.04em}
+.clk.ship .v{color:var(--ship)}
+.clk.cosmos .v{color:var(--cosmos)}
+#drift{margin-top:6px;font-size:12px;color:var(--dim);min-height:18px}
+#drift b{font-weight:400;color:var(--cosmos)}
+
+/* ---------- title ---------- */
+#scrim{position:fixed;inset:0;z-index:3;pointer-events:none;transition:opacity 1s;
+  background:linear-gradient(90deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.45) 32%,rgba(0,0,0,0) 58%)}
+body.v-hud #scrim{opacity:0}
+body.v-observe #scrim{opacity:.85}
+#title{position:fixed;left:calc(var(--sl) + 6vw);bottom:calc(var(--sb) + 9vh);z-index:4;max-width:min(520px,84vw)}
+.mark{font-family:var(--mark);font-size:clamp(13px,1.35vw,17px);letter-spacing:.62em;margin:0 0 18px;color:var(--star);
+  opacity:0;animation:rise 2.4s .5s forwards}
+.cn{font-weight:300;font-size:clamp(46px,7.4vw,96px);line-height:1;letter-spacing:.32em;margin:0 0 26px;margin-right:-.32em;
+  opacity:0;animation:rise 2.8s .9s forwards}
+.line{font-size:15px;font-weight:300;color:var(--dim);letter-spacing:.06em;margin:0 0 44px;opacity:0;animation:rise 2.4s 1.6s forwards}
+#menu{display:flex;flex-direction:column;align-items:flex-start;gap:2px;opacity:0;animation:rise 2s 2.2s forwards}
+#menu button{font-size:17px;font-weight:300;letter-spacing:.18em;padding:9px 0;display:flex;align-items:baseline;gap:16px;
+  color:var(--star);transition:color .3s}
+#menu button .e{font-size:11px;letter-spacing:.14em;color:var(--dim);font-weight:400}
+#menu button[aria-disabled=true]{color:var(--dim);cursor:default}
+@media (hover:hover){#menu button:not([aria-disabled=true]):hover{color:#fff}
+  #menu button:not([aria-disabled=true]):hover::before{width:22px}}
+#menu button::before{content:'';display:inline-block;width:10px;height:1px;background:currentColor;align-self:center;transition:width .3s}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ---------- observe mode ---------- */
+#observe{position:fixed;inset:0;z-index:4;pointer-events:none}
+#readout{position:absolute;left:calc(var(--sl) + 4vw);bottom:calc(var(--sb) + 7vh);pointer-events:auto;max-width:392px;padding:22px 24px 16px;
+  background:rgba(0,0,0,.62);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+#readout h2{margin:0 0 22px;font-weight:300;font-size:22px;letter-spacing:.2em}
+.row{display:grid;grid-template-columns:120px 1fr;gap:10px;padding:7px 0;border-top:1px solid var(--faint);font-size:14px;font-weight:300}
+.row .k{color:var(--dim)}
+.row .v{letter-spacing:.03em}
+.note{font-size:12.5px;line-height:1.8;color:var(--dim);margin:18px 0 22px;font-weight:300}
+.back{font-size:14px;letter-spacing:.18em;font-weight:300;padding:8px 0;display:inline-flex;gap:12px;align-items:center}
+.back::before{content:'';width:10px;height:1px;background:currentColor}
+#dial{text-shadow:0 0 10px #000,0 0 3px #000;position:absolute;right:calc(var(--sr) + 34px);top:50%;transform:translateY(-50%);height:min(52vh,420px);width:64px;pointer-events:auto;
+  display:flex;flex-direction:column;align-items:center}
+#dial .lbl{font-size:12px;color:var(--dim);letter-spacing:.1em;margin-bottom:12px;white-space:nowrap}
+#track{position:relative;flex:1;width:44px;cursor:ns-resize;touch-action:none}
+#track::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--faint)}
+#ticks{position:absolute;inset:0}
+#ticks i{position:absolute;left:50%;width:7px;height:1px;background:var(--faint);transform:translateX(-50%)}
+#ticks i.m{width:15px;background:rgba(237,235,230,.32)}
+#knob{position:absolute;left:50%;width:26px;height:2px;background:var(--star);transform:translate(-50%,-1px)}
+#knobv{position:absolute;right:32px;transform:translateY(-50%);font-size:13px;white-space:nowrap;letter-spacing:.04em}
+#dial .end{font-size:11px;color:var(--dim);margin-top:12px;white-space:nowrap}
+
+/* ---------- HUD preview ---------- */
+#hud{position:fixed;inset:0;z-index:4;pointer-events:none}
+#hud .glass{position:absolute;inset:0;background:radial-gradient(ellipse 120% 105% at 50% 50%,transparent 62%,rgba(0,0,0,.55) 92%,#000 100%)}
+#hud svg.frame{position:absolute;inset:0;width:100%;height:100%}
+#hud svg.frame path{fill:none;stroke:rgba(237,235,230,.22);stroke-width:1}
+.hb{position:absolute;opacity:0;transition:opacity .6s}
+#hud.on .hb{opacity:1}
+#life{left:calc(var(--sl) + 6vw);top:calc(var(--st) + 26px);width:220px}
+#life .t,#sx .t,#nav .t{font-size:11px;color:var(--dim);letter-spacing:.14em;margin-bottom:10px}
+.gauge{display:grid;grid-template-columns:44px 1fr 52px;align-items:center;gap:10px;font-size:13px;font-weight:300;margin:7px 0}
+.gauge .bar{height:2px;background:var(--faint);position:relative}
+.gauge .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--star)}
+.gauge .v{text-align:right}
+.gauge.warn .bar i{background:var(--alert)}
+#reticle{left:50%;top:50%;width:46px;height:46px;transform:translate(-50%,-50%)}
+#reticle svg{width:100%;height:100%}
+#tape{left:50%;bottom:calc(var(--sb) + 30px);transform:translateX(-50%);width:min(520px,70vw);height:40px;overflow:hidden;
+  -webkit-mask:linear-gradient(90deg,transparent,#000 22%,#000 78%,transparent);mask:linear-gradient(90deg,transparent,#000 22%,#000 78%,transparent)}
+#tapeIn{position:absolute;top:0;left:0;height:100%;white-space:nowrap}
+#tapeIn span{position:absolute;top:0;width:1px;height:8px;background:rgba(237,235,230,.4)}
+#tapeIn span.m{height:14px;background:rgba(237,235,230,.7)}
+#tapeIn em{position:absolute;top:18px;font-style:normal;font-size:11px;color:var(--dim);transform:translateX(-50%)}
+#tapeMark{position:absolute;left:50%;top:0;width:1px;height:16px;background:var(--ship)}
+#nav{right:calc(var(--sr) + 28px);bottom:calc(var(--sb) + 30px);text-align:right;width:220px}
+#nav .gauge{grid-template-columns:1fr auto}
+#sx{left:calc(var(--sl) + 6vw);bottom:calc(var(--sb) + 30px);max-width:min(380px,60vw)}
+#sxText{font-size:14px;font-weight:300;line-height:1.7;min-height:48px}
+#hudBack{position:absolute;right:calc(var(--sr) + 28px);top:calc(var(--st) + 112px);pointer-events:auto}
+
+/* ---------- settings ---------- */
+#settings{position:fixed;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.62)}
+#settings .panel{width:min(480px,90vw);padding:30px 32px 26px;border:1px solid var(--faint);background:rgba(0,0,0,.72)}
+#settings h2{margin:0 0 20px;font-weight:300;font-size:20px;letter-spacing:.2em}
+.set{padding:16px 0;border-top:1px solid var(--faint)}
+.set .k{font-size:14px;margin-bottom:12px;letter-spacing:.08em}
+.seg{display:flex;gap:0;border:1px solid var(--faint);width:max-content}
+.seg button{padding:8px 16px;font-size:13px;letter-spacing:.1em;color:var(--dim);font-weight:300}
+.seg button[aria-pressed=true]{color:#000;background:var(--star)}
+.set p{font-size:12.5px;line-height:1.8;color:var(--dim);margin:12px 0 0;font-weight:300}
+#settings .back{margin-top:12px}
+
+#toast{position:fixed;left:50%;top:calc(var(--st) + 26px);transform:translateX(-50%);font-size:13px;letter-spacing:.08em;color:var(--star);
+  z-index:9;opacity:0;transition:opacity .5s;pointer-events:none;font-weight:300}
+#toast.on{opacity:1}
+#nogl{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;z-index:20;font-size:15px;line-height:1.8;color:var(--dim)}
+
+@media (orientation:portrait){
+  #scrim{background:linear-gradient(0deg,rgba(0,0,0,.8) 0%,rgba(0,0,0,.4) 30%,rgba(0,0,0,0) 50%)}
+  #title{left:calc(var(--sl) + 7vw);right:7vw;bottom:calc(var(--sb) + 6vh)}
+  .cn{font-size:clamp(40px,13vw,64px)}
+  .line{margin-bottom:28px}
+  #clocks{right:auto;left:calc(var(--sl) + 7vw);text-align:left}
+  .clk{justify-content:flex-start;flex-direction:row-reverse}
+  #readout{left:7vw;right:7vw;bottom:calc(var(--sb) + 4vh)}
+  #dial{right:calc(var(--sr) + 12px);top:38%;height:34vh}
+  #life{left:7vw;top:calc(var(--st) + 110px)}
+  #nav{display:none}
+  #hudBack{top:auto;right:7vw;bottom:calc(var(--sb) + 150px)}
+  #sx{left:7vw;bottom:calc(var(--sb) + 80px)}
+}
+@media (max-height:520px) and (orientation:landscape){
+  #title{bottom:calc(var(--sb) + 5vh)}
+  .cn{font-size:clamp(34px,9vh,60px);margin-bottom:14px}
+  .mark{margin-bottom:10px}
+  .line{margin-bottom:16px;font-size:13px}
+  #menu button{padding:5px 0;font-size:15px}
+  #readout{bottom:calc(var(--sb) + 4vh)}
+  .note{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .mark,.cn,.line,#menu{animation:none;opacity:1}
+}
+
+/* =================== in-game =================== */
+body.ingame #c,body.ingame #scrim,body.ingame #clocks,body.ingame #title{display:none}
+#game{position:fixed;inset:0;z-index:2}
+#gc{z-index:1}
+#touchSurface{position:absolute;inset:0;z-index:5;touch-action:none;cursor:grab}
+#touchSurface:active{cursor:grabbing}
+.ov{position:absolute;inset:0;pointer-events:none}
+#dust{z-index:2;opacity:0;background:radial-gradient(ellipse at 50% 60%,#5a3424 0%,#3a2016 55%,#1e0f09 100%)}
+#white{z-index:2;opacity:0;background:#3a2418;transition:opacity .2s}
+#hurt{z-index:2;opacity:0;transition:opacity .25s;background:radial-gradient(ellipse 110% 100% at 50% 50%,transparent 55%,rgba(150,20,6,.55) 100%)}
+#fade{z-index:12;background:#000}
+#flash{z-index:12;background:#fff;opacity:0}
+#flash.red{background:#ff3a1a}
+#flash.go{animation:flash .9s ease-out}
+@keyframes flash{0%{opacity:.7}100%{opacity:0}}
+
+/* joystick */
+#joyBase{position:absolute;left:0;top:0;width:124px;height:124px;border-radius:50%;z-index:6;pointer-events:none;opacity:0;transition:opacity .2s;
+  border:1px solid rgba(237,235,230,.28);background:rgba(0,0,0,.18)}
+#joyBase.on{opacity:1}
+#joyKnob{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:rgba(237,235,230,.22);border:1px solid rgba(237,235,230,.55)}
+
+/* countdown: the one alarming thing on screen */
+#cd{position:absolute;left:50%;top:calc(var(--st) + 16px);transform:translateX(-50%);z-index:4;pointer-events:none;text-align:center;text-shadow:0 0 14px #000,0 0 3px #000}
+#cd .k{font-size:11px;letter-spacing:.24em;color:#ff9a7a}
+#cdV{font-family:var(--mark);font-size:clamp(24px,2.6vw,34px);letter-spacing:.08em;color:#ffe9e0;line-height:1.25}
+#cdG{font-size:11.5px;color:var(--dim);letter-spacing:.08em}
+#cd.urgent #cdV{color:var(--alert);animation:pulse 1s steps(2,jump-none) infinite}
+@keyframes pulse{50%{opacity:.45}}
+#game.cine #cd,#game.ended #cd{opacity:0;transition:opacity 1.2s}
+
+/* helmet HUD */
+#ghud{position:absolute;inset:0;z-index:4;pointer-events:none}
+#ghud .glass{position:absolute;inset:0;background:radial-gradient(ellipse 125% 110% at 50% 50%,transparent 66%,rgba(0,0,0,.38) 92%,rgba(0,0,0,.7) 100%);opacity:0;transition:opacity 1.2s}
+#ghud.on .glass{opacity:1}
+#ghud svg.frame{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity 1s .2s}
+#ghud.on svg.frame{opacity:1}
+#ghud svg.frame path{fill:none;stroke:rgba(237,235,230,.18);stroke-width:1}
+#ghud .hb{transition:opacity .6s .8s}
+#ghud.on .hb{opacity:1}
+#gLife{left:calc(var(--sl) + 32px);top:calc(var(--st) + 22px);width:244px;text-shadow:0 0 8px #000}
+#gLife .t,#gClk .t,.ah .t{font-size:11px;color:var(--dim);letter-spacing:.14em;margin-bottom:8px}
+#gLife .gauge{grid-template-columns:78px 1fr 40px;margin:6px 0;font-size:12.5px;white-space:nowrap}
+.gauge .bar i.f{right:0;transform-origin:left center;transition:transform .15s}
+.gauge.warn span:first-child,.gauge.warn .v{color:var(--alert)}
+#gClk{right:calc(var(--sr) + 32px);top:calc(var(--st) + 22px);text-align:right;text-shadow:0 0 8px #000}
+#gClk .clk .v{font-size:15px}
+#gClk .dr{font-size:11.5px;color:var(--dim);margin-top:4px}
+#gClk .dr b{font-weight:400;color:var(--cosmos)}
+body.touch #gClk{right:calc(var(--sr) + 84px)}
+#bodyHp{position:absolute;left:calc(var(--sl) + 32px);top:calc(var(--st) + 24px);width:180px;z-index:4;pointer-events:none}
+#bodyHp .gauge{grid-template-columns:34px 1fr;font-size:12.5px;text-shadow:0 0 6px #000}
+
+/* objective, hints, prompt, dialogue */
+#obj{position:absolute;left:calc(var(--sl) + 32px);top:calc(var(--st) + 64px);z-index:4;pointer-events:none;max-width:min(330px,36vw);
+  font-size:14px;font-weight:300;line-height:1.55;padding-left:14px;border-left:1px solid var(--ship);text-shadow:0 0 10px #000,0 0 3px #000;
+  opacity:0;transform:translateX(-6px);transition:opacity .5s,transform .5s;text-wrap:balance}
+#obj.on{opacity:1;transform:none}
+body.suited #obj{top:calc(var(--st) + 128px)}
+body.flying #obj{top:calc(var(--st) + 22px)}
+#hint{position:absolute;left:50%;top:calc(var(--st) + 104px);transform:translate(-50%,6px);z-index:4;pointer-events:none;max-width:min(560px,50vw);text-align:center;
+  font-size:13px;color:var(--star);font-weight:300;letter-spacing:.04em;line-height:1.7;padding:7px 16px;background:rgba(0,0,0,.42);text-wrap:balance;
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);opacity:0;transition:opacity .4s,transform .4s}
+#hint.on{opacity:1;transform:translate(-50%,0)}
+#prompt{position:absolute;left:50%;top:64%;transform:translateX(-50%);z-index:4;pointer-events:none;font-size:14px;font-weight:300;letter-spacing:.06em;
+  display:flex;align-items:center;gap:10px;text-shadow:0 0 10px #000;opacity:0;transition:opacity .25s}
+#prompt.on{opacity:1}
+#prompt b{font-weight:400;font-size:12px;min-width:24px;height:24px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(237,235,230,.6)}
+#say{position:absolute;left:50%;bottom:calc(var(--sb) + 30px);transform:translateX(-50%);z-index:7;pointer-events:none;width:min(600px,56vw);
+  padding:12px 18px 13px;background:linear-gradient(90deg,rgba(0,0,0,.6),rgba(0,0,0,.4));opacity:0;transition:opacity .35s}
+#say.on{opacity:1}
+#say .who{display:flex;gap:14px;align-items:baseline;font-size:11.5px;letter-spacing:.16em;color:var(--dim);margin-bottom:5px}
+#sayWho{color:var(--star)}
+#say[data-who="六分儀"] #sayWho{color:var(--cosmos)}
+#say[data-who="萊拉"] #sayWho{color:var(--ship)}
+#say[data-who="緊急廣播"] #sayWho{color:var(--alert)}
+#sayDelay{letter-spacing:.06em}
+#sayText{margin:0;font-size:15px;font-weight:300;line-height:1.65;text-wrap:pretty}
+body.touch #say{bottom:calc(var(--sb) + 18px);width:min(520px,46vw)}
+#game.cine #say{bottom:calc(var(--sb) + 12vh);background:none;text-align:center;text-shadow:0 0 12px #000}
+#game.cine #say .who{justify-content:center}
+
+/* flight HUD */
+#ahud{position:absolute;inset:0;z-index:4;pointer-events:none;text-shadow:0 0 10px #000,0 0 3px #000}
+.ah{position:absolute}
+#ahAlt{left:calc(var(--sl) + 32px);top:calc(var(--st) + 84px)}
+#aAlt{font-family:var(--mark);font-size:clamp(22px,2.6vw,32px);letter-spacing:.04em;line-height:1.1}
+#ahAlt .sub{display:grid;grid-template-columns:auto auto;gap:4px 16px;margin-top:12px;font-size:12.5px;font-weight:300}
+#ahAlt .sub span:nth-child(odd){color:var(--dim)}
+#ahSuit{right:calc(var(--sr) + 32px);top:calc(var(--st) + 132px);width:250px}
+#ahSuit .gauge{grid-template-columns:78px 1fr 76px;margin:7px 0;font-size:12.5px;white-space:nowrap}
+#ahSuit .gauge .v{text-align:right}
+#aShRow .bar i{background:linear-gradient(90deg,#ffb27a,#b9a4ff)}
+/* altitude to space, log scale: 1 km at half height, 10 km at three quarters */
+#ahBar{left:calc(var(--sl) + 36px);bottom:calc(var(--sb) + 34px);height:132px;width:120px}
+#ahBar .col{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--faint)}
+#aBarFill{position:absolute;inset:0;background:var(--cosmos);transform-origin:bottom;transform:scaleY(0)}
+#ahBar .tk{position:absolute;left:10px;transform:translateY(50%);font-size:11px;color:var(--dim);white-space:nowrap}
+#ahBar .tk::before{content:'';position:absolute;left:-10px;top:50%;width:8px;height:1px;background:var(--dim)}
+#ahBar .tk.top{color:var(--cosmos)}
+#ahud.space .atm{display:none}
+#rockWarn,.rockMark{position:absolute;left:0;top:0;z-index:4;width:44px;height:44px;border:1.5px solid var(--alert);border-radius:50%;pointer-events:none;opacity:0;
+  box-shadow:0 0 12px rgba(255,90,60,.6)}
+/* waypoint: 晨星號 (amber, the ship's colour); clamps to the screen edge with an arrow when she is out of view */
+#wp{position:absolute;left:0;top:0;z-index:4;pointer-events:none;color:var(--ship);text-shadow:0 0 8px #000,0 0 2px #000;will-change:transform}
+#wp .dia{position:absolute;left:-8px;top:-8px;width:16px;height:16px;border:1.5px solid currentColor;transform:rotate(45deg);box-shadow:0 0 12px rgba(255,194,122,.35)}
+#wp .arr{display:none;position:absolute;left:-6px;top:-27px;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:8px solid currentColor;
+  transform-origin:6px 27px;transform:rotate(var(--a,0deg))}
+#wp .lb{position:absolute;left:20px;top:-16px;white-space:nowrap;font-size:12px;letter-spacing:.14em;line-height:1.4}
+#wp .lb b{display:block;font-weight:400}
+#wp .lb span{color:var(--star);font-size:12.5px;letter-spacing:.04em}
+#wp.lft .lb{left:auto;right:20px;text-align:right}
+#wp.off .arr{display:block}
+#wp.off .dia{opacity:.55}
+#wp.near .dia{animation:wpPulse 1s ease-in-out infinite}
+@keyframes wpPulse{50%{box-shadow:0 0 18px rgba(255,194,122,.8)}}
+#game.cine #wp{opacity:0}
+
+/* aboard 晨星號: the trip at a glance (left), clocks stay right */
+#vhud{position:absolute;inset:0;z-index:4;pointer-events:none;text-shadow:0 0 10px #000,0 0 3px #000}
+#vhud .vb{position:absolute;left:calc(var(--sl) + 32px);top:calc(var(--st) + 84px);width:240px}
+#vhud .t{font-size:11px;color:var(--dim);letter-spacing:.14em;margin-bottom:8px}
+#vhud .t span{color:var(--cosmos)}
+#vDist{font-family:var(--mark);font-size:clamp(20px,2.3vw,28px);letter-spacing:.04em;line-height:1.1}
+.vtrack{position:relative;height:1px;background:rgba(142,201,255,.35);margin:14px 0 12px}
+.vtrack .mid{position:absolute;left:50%;top:-4px;width:1px;height:9px;background:rgba(142,201,255,.6)}
+#vMk{position:absolute;top:-3px;left:0;width:7px;height:7px;margin-left:-3.5px;border-radius:50%;background:var(--ship);box-shadow:0 0 8px rgba(255,194,122,.7)}
+#vhud .sub{display:grid;grid-template-columns:auto auto;gap:4px 16px;font-size:12.5px;font-weight:300}
+#vhud .sub span:nth-child(odd){color:var(--dim)}
+#vRate{margin-top:10px;font-size:12px;color:var(--cosmos);letter-spacing:.1em}
+body.voyage #ghud #gLife{display:none}
+body.suited.voyage #obj{top:calc(var(--st) + 22px)}
+#game.cine #vhud,#game.ended #vhud,#game.ended #ghud,#game.ended #ahud{opacity:0}
+@media (max-height:500px){#vhud .vb{top:calc(var(--st) + 50px);left:calc(var(--sl) + 20px);width:210px}#vDist{font-size:19px}.vtrack{margin:8px 0}#vhud .sub{gap:2px 12px;font-size:11.5px}}
+
+
+/* ---------- on foot on Mars: combat HUD, bars over heads, lock mark, scanner, death ---------- */
+#chud{position:absolute;left:calc(var(--sl) + 32px);top:calc(var(--st) + 22px);z-index:4;pointer-events:none;width:230px;text-shadow:0 0 8px #000}
+#chud .r{display:grid;grid-template-columns:46px 1fr;align-items:center;gap:10px;height:17px;font-size:12px;color:#cdc8bf;letter-spacing:.08em}
+#chud .b{position:relative;height:3px;background:rgba(237,235,230,.14);overflow:hidden}
+#chud .b i{position:absolute;inset:0;transform-origin:left;transition:transform .12s linear}
+#cHp{background:var(--star)} #cSta{background:var(--cosmos)} #cHeat{background:#ff8a3c}
+#cHeatRow.hot .b i{animation:hot .3s steps(2) infinite} @keyframes hot{50%{opacity:.35}}
+#cHeals{margin-top:6px;font-size:11.5px;color:var(--ship);letter-spacing:.08em}
+body.explore #ghud #gLife{display:none}
+body.suited.explore #obj{top:calc(var(--st) + 108px)}
+body.suited.explore.flying #obj{top:calc(var(--st) + 22px)}   /* in the air the fight HUD is gone and the altimeter takes its place */
+body.explore.flying #chud{opacity:0}
+#ebars{position:absolute;inset:0;z-index:3;pointer-events:none}
+.eb{position:absolute;left:0;top:0;display:none;width:0;height:0;will-change:transform}
+.eb.on{display:block}
+.eb > *{position:absolute;left:0;transform:translateX(-50%);white-space:nowrap}
+.eb .n{top:-30px;white-space:nowrap;font-size:11.5px;letter-spacing:.12em;color:var(--star);text-shadow:0 0 6px #000,0 0 2px #000}
+.eb .bar{top:-12px;width:120px;height:4px;background:rgba(0,0,0,.55);box-shadow:0 0 0 1px rgba(237,235,230,.22)}
+.eb .bar i{position:absolute;inset:0;transform-origin:left}
+.eb .bar .lag{background:rgba(255,214,170,.55)}
+.eb .bar .hp{background:#d9573f}
+.eb .st{top:-48px;display:none;font-size:11px;letter-spacing:.2em;color:var(--ship)}
+.eb.stag .st{display:block}
+.eb.lock .n{color:#fff}
+.eb.boss .bar{width:220px;height:6px}
+.eb.boss .n{font-size:13px;letter-spacing:.2em;top:-34px}
+#lockR{position:absolute;left:-7px;top:-7px;width:14px;height:14px;z-index:4;pointer-events:none;display:none}
+#lockR.on{display:block}
+#lockR::before{content:'';position:absolute;inset:0;border:1.5px solid #fff;transform:rotate(45deg);box-shadow:0 0 8px rgba(255,255,255,.6)}
+#critP{position:absolute;left:50%;bottom:calc(var(--sb) + 30%);transform:translateX(-50%);z-index:5;pointer-events:none;display:none;
+  font-size:14px;letter-spacing:.3em;color:var(--ship);text-shadow:0 0 10px #000}
+#critP.on{display:block;animation:rise .25s both}
+#critP b{font-weight:400;margin-right:10px;padding:2px 8px;border:1px solid currentColor;border-radius:3px;font-size:11px;letter-spacing:.1em}
+#died{position:absolute;inset:0;z-index:15;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;transition:opacity 1.2s;
+  background:radial-gradient(ellipse at center,rgba(20,4,2,.55) 0%,rgba(0,0,0,.85) 70%)}
+#died.on{opacity:1}
+#died .t{font-size:clamp(34px,6vw,64px);letter-spacing:.6em;font-weight:300;color:#d9573f;margin-left:.6em}
+#died .s{margin-top:14px;font-size:13px;letter-spacing:.2em;color:var(--dim)}
+#fade{position:absolute;inset:0;z-index:16;background:#000;opacity:0;pointer-events:none;transition:opacity .3s}
+#fade.on{opacity:1}
+#pois{position:absolute;inset:0;z-index:3;pointer-events:none}
+.poi{position:absolute;left:0;top:0;display:none;color:var(--cosmos);text-shadow:0 0 8px #000;will-change:transform}
+.poi.on{display:block}
+.poi i{position:absolute;left:-5px;top:-5px;width:10px;height:10px;border:1px solid currentColor;border-radius:50%}
+.poi b{position:absolute;left:14px;top:-10px;white-space:nowrap;font-weight:400;font-size:12px;letter-spacing:.1em}
+.poi span{position:absolute;left:14px;top:6px;font-size:11.5px;color:var(--star);white-space:nowrap}
+#scanRing{position:absolute;left:50%;top:50%;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;border:1px solid var(--cosmos);opacity:0;z-index:3;pointer-events:none}
+#scanRing.go{animation:scan 1.4s ease-out}
+@keyframes scan{0%{opacity:.8;transform:scale(1)}100%{opacity:0;transform:scale(80)}}
+#scrimTop{position:absolute;left:0;right:0;top:0;height:150px;z-index:2;pointer-events:none;display:none;background:linear-gradient(rgba(0,0,0,.42),rgba(0,0,0,0))}
+#game:not(.cine) #scrimTop{display:block}
+/* HUD type keeps a soft dark halo so it reads over white walls, snow and fire alike */
+#game #cd,#game #obj,#game #bodyHp,#game #vhud,#game #chud,#game #ghud,#game #wp,#game #pois{text-shadow:0 1px 2px rgba(0,0,0,.65),0 0 10px rgba(0,0,0,.4)}
+/* the bridge walls are near-white: give the read-outs a soft dark field so the grey labels read */
+#vhud::before{content:'';position:absolute;left:0;top:0;width:min(560px,56vw);height:min(480px,74vh);background:radial-gradient(ellipse 100% 100% at 0 0,rgba(4,6,9,.78),rgba(4,6,9,.5) 45%,rgba(4,6,9,0) 78%)}
+#vhud .sub span:nth-child(odd){color:#b7b2aa}
+#tcFight{display:none}
+body.touch.explore #tcFight{display:block}
+body.touch.explore #tcWalk{display:block}
+body.touch.explore #tcWalk #bJump,body.touch.explore #tcWalk #bDodge{display:none}
+body.touch.explore.flying #tcFight{display:none}
+body.touch.explore #bInteract{right:calc(var(--sr) + 214px);bottom:calc(var(--sb) + 112px)}
+#tcFight .tbtn{font-size:13px}
+#kA{right:calc(var(--sr) + 30px);bottom:calc(var(--sb) + 30px);width:84px;height:84px;font-size:15px;border-color:rgba(237,235,230,.55)}
+#kH{right:calc(var(--sr) + 128px);bottom:calc(var(--sb) + 20px);width:60px;height:60px}
+#kD{right:calc(var(--sr) + 116px);bottom:calc(var(--sb) + 96px);width:60px;height:60px}
+#kB{right:calc(var(--sr) + 40px);bottom:calc(var(--sb) + 126px);width:60px;height:60px}
+#tcFight .sm{width:46px;height:46px;font-size:11.5px;bottom:calc(var(--sb) + 200px)}
+#kJ{right:calc(var(--sr) + 30px)} #kL{right:calc(var(--sr) + 84px)} #kHeal{right:calc(var(--sr) + 138px)} #kS{right:calc(var(--sr) + 192px)} #kF{right:calc(var(--sr) + 246px)}
+@media (max-height:500px){#chud{left:calc(var(--sl) + 20px);top:calc(var(--st) + 14px);width:200px}body.suited.explore #obj{top:calc(var(--st) + 84px)}body.suited.explore.flying #obj{top:calc(var(--st) + 14px)}#tcFight .sm{bottom:calc(var(--sb) + 182px)}}
+/* the fight cluster wraps the attack button within one thumb's reach; flying and scanning sit up top, left of the clocks, clear of the edge markers */
+#tcFight #kA{right:calc(var(--sr) + 30px);bottom:calc(var(--sb) + 30px)}
+#tcFight #kH{right:calc(var(--sr) + 132px);bottom:calc(var(--sb) + 24px);width:58px;height:58px}
+#tcFight #kD{right:calc(var(--sr) + 118px);bottom:calc(var(--sb) + 104px);width:58px;height:58px}
+#tcFight #kB{right:calc(var(--sr) + 40px);bottom:calc(var(--sb) + 132px);width:58px;height:58px}
+#tcFight #kJ{right:calc(var(--sr) + 204px);bottom:calc(var(--sb) + 86px);width:46px;height:46px}
+#tcFight #kL{right:calc(var(--sr) + 190px);bottom:calc(var(--sb) + 152px);width:44px;height:44px}
+#tcFight #kHeal{right:calc(var(--sr) + 112px);bottom:calc(var(--sb) + 180px);width:44px;height:44px}
+#tcFight #kS,#tcFight #kF{top:calc(var(--st) + 18px);bottom:auto;width:40px;height:40px;font-size:11px;opacity:.85}
+#tcFight #kS{right:calc(var(--sr) + 270px)} #tcFight #kF{right:calc(var(--sr) + 318px)}
+body.touch.explore #bInteract{right:calc(var(--sr) + 270px);bottom:calc(var(--sb) + 34px)}
+/* end of what exists so far: the title, after the ship has gone */
+#endT{display:none;position:absolute;inset:0;z-index:14;background:linear-gradient(90deg,rgba(0,0,0,.72) 0%,rgba(0,0,0,.4) 34%,rgba(0,0,0,0) 62%)}
+#endT.on{display:block;animation:rise 2s both}
+#endT .in{position:absolute;left:calc(var(--sl) + 6vw);bottom:calc(var(--sb) + 15vh);max-width:min(520px,84vw)}
+#endT .line{margin-bottom:34px}
+#endT .menu{display:none;flex-direction:column;align-items:flex-start;gap:2px;opacity:0;animation:rise 2s 3s forwards}
+#game.ended.final #endT .menu{display:flex}
+#endT .menu button{font-size:16px;font-weight:300;letter-spacing:.18em;padding:9px 0;display:flex;align-items:baseline;gap:16px;color:var(--star);transition:color .3s}
+#endT .menu button::before{content:'';display:inline-block;width:10px;height:1px;background:currentColor;align-self:center;transition:width .3s}
+@media (hover:hover){#endT .menu button:hover{color:#fff}#endT .menu button:hover::before{width:22px}}
+#game.ended #say,#game.ended .bar-t,#game.ended .bar-b,#game.ended #chud,#game.ended #wp,#game.ended #pois,#game.ended #ebars,#game.ended #lockR,#game.ended #obj,#game.ended #scrimTop,#game.ended #tcFight{opacity:0!important;transition:opacity 1.5s;pointer-events:none}
+body.explore #game.cine #wp,body.explore #game.cine #pois,body.explore #game.cine #lockR{opacity:0}
+#rockWarn::after,.rockMark::after{content:'';position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:var(--alert)}
+body.flying #ghud #gClk{top:calc(var(--st) + 22px)}
+body.flying #ghud #gLife{display:none}
+body.flying #hint{max-width:min(560px,46vw);top:calc(var(--st) + 96px)}
+#cdFF{display:none;font-size:11.5px;color:var(--cosmos);letter-spacing:.14em}
+#cd.ff #cdV{color:var(--cosmos)}
+#cd.ff #cdFF{display:block}
+#cd.ff #cdG{display:none}
+#game.postEarth #cd{display:none}
+#pNext{display:none;font-size:12.5px;color:var(--dim);font-weight:300;margin:0 0 18px;letter-spacing:.06em}
+#pNext b{font-weight:400;color:var(--cosmos)}
+#game.postEarth #pNext{display:block}
+
+/* cinematic */
+.bar-t,.bar-b{position:absolute;left:0;right:0;height:0;background:#000;z-index:6;transition:height 1.6s ease}
+.bar-t{top:0}.bar-b{bottom:0}
+#game.cine .bar-t,#game.cine .bar-b{height:9vh}
+#timeLabel{position:absolute;left:calc(var(--sl) + 32px);top:calc(9vh + 14px);z-index:7;font-size:11.5px;letter-spacing:.14em;color:var(--dim);opacity:0;transition:opacity 1s 1s}
+#game.cine #timeLabel{opacity:1}
+#game.cine #ghud,#game.cine #ahud,#game.cine #obj,#game.cine #hint,#game.cine #tcWalk,#game.cine #tcFly,#game.cine #bPause{opacity:0;pointer-events:none}
+
+/* chapter card */
+#chapter{position:absolute;left:calc(var(--sl) + 8vw);bottom:calc(var(--sb) + 18vh);z-index:13;pointer-events:none;opacity:0;transition:opacity 1.6s;text-shadow:0 2px 18px rgba(0,0,0,.7)}
+#game:has(#chapter.on) #vhud,#game:has(#chapter.on) #ghud{opacity:0;transition:opacity .8s}
+#chapter.on{opacity:1}
+#chapter .d{font-size:13px;letter-spacing:.2em;color:var(--dim);margin-bottom:12px}
+#chapter .p{font-size:clamp(26px,3.4vw,40px);font-weight:300;letter-spacing:.3em}
+
+/* touch controls */
+.tbtn{position:absolute;z-index:6;width:58px;height:58px;border-radius:50%;border:1px solid rgba(237,235,230,.34);background:rgba(0,0,0,.28);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-size:12.5px;letter-spacing:.06em;display:flex;align-items:center;justify-content:center;touch-action:none;transition:background .12s}
+.tbtn.press{background:rgba(237,235,230,.22)}
+#tcWalk,#tcFly{display:none}
+body.touch #tcWalk,body.touch.flying #tcFly{display:block}
+body.touch.flying #tcWalk{display:none}
+#bJump{right:calc(var(--sr) + 34px);bottom:calc(var(--sb) + 34px);width:80px;height:80px;font-size:14px;border-color:rgba(237,235,230,.5)}
+#bDodge{right:calc(var(--sr) + 128px);bottom:calc(var(--sb) + 26px)}
+#bInteract{right:calc(var(--sr) + 40px);bottom:calc(var(--sb) + 132px);width:auto;padding:0 18px;height:42px;border-radius:21px;border-color:var(--ship);color:var(--ship)}
+#bPause{position:absolute;z-index:7;right:calc(var(--sr) + 22px);top:calc(var(--st) + 18px);width:44px;height:44px;display:none;align-items:center;justify-content:center}
+#bPause::before,#bPause::after{content:'';width:2px;height:14px;background:var(--star);margin:0 3px}
+body.touch #bPause{display:flex}
+#fUp{right:calc(var(--sr) + 30px);bottom:calc(var(--sb) + 30px);width:86px;height:86px;font-size:14px;border-color:rgba(237,235,230,.55)}
+#fDn{right:calc(var(--sr) + 130px);bottom:calc(var(--sb) + 22px)}
+#fBoost{right:calc(var(--sr) + 41px);bottom:calc(var(--sb) + 134px);width:64px;height:64px;border-color:var(--ship);color:var(--ship)}
+body.touch #ahSuit{left:calc(var(--sl) + 20px);right:auto;top:calc(var(--st) + 182px);width:206px}
+body.touch #ahSuit .gauge{margin:3px 0;grid-template-columns:72px 1fr 64px}
+body.touch #ahBar{display:none}
+
+/* pause + end */
+.modal{position:absolute;inset:0;z-index:14;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.66);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.modal .panel{width:min(640px,90vw);max-height:90vh;overflow:auto;padding:28px 32px 24px}
+.modal h2{margin:0 0 20px;font-weight:300;font-size:22px;letter-spacing:.24em}
+.modal .acts{display:flex;flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:18px}
+.modal .acts button{font-size:16px;font-weight:300;letter-spacing:.16em;padding:8px 0;display:flex;gap:14px;align-items:center}
+.modal .acts button::before{content:'';width:10px;height:1px;background:currentColor;transition:width .3s}
+@media (hover:hover){.modal .acts button:hover::before{width:22px}}
+.keys{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:7px 16px;font-size:12.5px;font-weight:300;color:var(--dim);border-top:1px solid var(--faint);padding-top:16px}
+.keys b{font-weight:400;color:var(--star);white-space:nowrap}
+body.touch .keys{display:none}
+
+@media (max-height:520px) and (orientation:landscape){
+  #cd{top:calc(var(--st) + 10px)}
+  #gLife{top:calc(var(--st) + 14px);left:calc(var(--sl) + 20px)}
+  #gClk{top:calc(var(--st) + 14px)}
+  #gClk .clk{line-height:1.35}
+  #obj{left:calc(var(--sl) + 20px);top:calc(var(--st) + 52px);font-size:13px}
+  body.suited #obj{top:calc(var(--st) + 112px)}
+  body.flying #obj,body.suited.voyage #obj{top:calc(var(--st) + 14px)}
+  #bodyHp{left:calc(var(--sl) + 20px);top:calc(var(--st) + 16px)}
+  #say{padding:9px 14px 10px}
+  #sayText{font-size:13.5px}
+  #hint{font-size:12px;top:calc(var(--st) + 90px)}
+  #ahAlt{top:calc(var(--st) + 70px);left:calc(var(--sl) + 20px)}
+  #ahSuit .gauge{margin:4px 0}
+  #ahBar{height:96px;bottom:calc(var(--sb) + 20px)}
+  #chapter{bottom:calc(var(--sb) + 14vh)}
+  .modal .panel{padding:18px 24px}
+}
+@media (orientation:portrait){
+  body.ingame::after{content:'打橫部手機玩會好啲';position:fixed;left:50%;top:calc(var(--st) + 50%);transform:translate(-50%,-50%);z-index:20;font-size:14px;letter-spacing:.14em;color:var(--dim);
+    pointer-events:none;padding:12px 18px;background:rgba(0,0,0,.6);animation:rise 1s both, fadeAway 1s 4s forwards}
+}
+@keyframes fadeAway{to{opacity:0}}
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+</head>
+<body class="v-title">
+<canvas id="c" aria-hidden="true"></canvas>
+<div id="scrim"></div>
+
+<div id="clocks" aria-live="off">
+  <div class="clk ship"><span class="k">船上時間</span><span class="v num" id="shipT">06:21:00</span></div>
+  <div class="clk cosmos"><span class="k">宇宙時間</span><span class="v num" id="cosT">06:21:00</span></div>
+  <div id="drift" class="num"></div>
+</div>
+
+<main id="title">
+  <p class="mark">BEYOND THE HORIZON</p>
+  <h1 class="cn">視界之外</h1>
+  <p class="line">公元 3385 年，地球正在死去。</p>
+  <nav id="menu" aria-label="主選單">
+    <button id="bStart">開始旅程<span class="e">序章</span></button>
+    <button id="bNew" class="hidden">由頭開始</button>
+    <button id="bObserve">觀測黑洞</button>
+    <button id="bHud">頭盔 HUD 預覽</button>
+    <button id="bSet">設定</button>
+  </nav>
+</main>
+
+<section id="observe" class="hidden" aria-label="觀測黑洞">
+  <div id="readout">
+    <h2>觀測黑洞</h2>
+    <div class="row"><span class="k">距離</span><span class="v num" id="rR">—</span></div>
+    <div class="row"><span class="k">時間流速</span><span class="v num" id="rG">—</span></div>
+    <div class="row"><span class="k">陰影大小</span><span class="v num" id="rS">—</span></div>
+    <div class="row"><span class="k">畫面模式</span><span class="v" id="rM">—</span></div>
+    <p class="note">拉右邊個刻度行近黑洞。你停喺原位（懸浮）嘅時候，越近視界，你嘅時間行得越慢，宇宙時間就越快。拖曳畫面可以轉角度。</p>
+    <button class="back" id="obsBack">返回</button>
+  </div>
+  <div id="dial">
+    <div class="lbl">距離（Rs）</div>
+    <div id="track" role="slider" tabindex="0" aria-label="同黑洞嘅距離" aria-valuemin="1.05" aria-valuemax="40" aria-valuenow="30">
+      <div id="ticks"></div><div id="knob"></div><div id="knobv" class="num">30.0</div>
+    </div>
+    <div class="end">視界</div>
+  </div>
+</section>
+
+<section id="hud" class="hidden" aria-label="頭盔 HUD 預覽">
+  <div class="glass"></div>
+  <svg class="frame" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+    <path vector-effect="non-scaling-stroke" d="M3 22 Q3 3 22 3"/><path vector-effect="non-scaling-stroke" d="M78 3 Q97 3 97 22"/><path vector-effect="non-scaling-stroke" d="M97 78 Q97 97 78 97"/><path vector-effect="non-scaling-stroke" d="M22 97 Q3 97 3 78"/>
+  </svg>
+  <div class="hb" id="life">
+    <div class="t">維生</div>
+    <div class="gauge"><span>氧氣</span><span class="bar"><i id="gO2" style="width:87%"></i></span><span class="v num" id="vO2">87%</span></div>
+    <div class="gauge"><span>熱量</span><span class="bar"><i id="gHeat" style="width:41%"></i></span><span class="v num" id="vHeat">41%</span></div>
+    <div class="gauge" id="radRow"><span>輻射</span><span class="bar"><i id="gRad" style="width:6%"></i></span><span class="v num" id="vRad">0.02</span></div>
+  </div>
+  <div class="hb" id="reticle"><svg viewBox="0 0 46 46" aria-hidden="true"><circle cx="23" cy="23" r="15" fill="none" stroke="rgba(237,235,230,.35)" stroke-width="1"/><path d="M23 2v8M23 36v8M2 23h8M36 23h8" stroke="rgba(237,235,230,.6)" stroke-width="1"/></svg></div>
+  <div class="hb" id="tape"><div id="tapeIn"></div><div id="tapeMark"></div></div>
+  <div class="hb" id="nav">
+    <div class="t">導航</div>
+    <div class="gauge"><span>同視界距離</span><span class="v num" id="nR">—</span></div>
+    <div class="gauge"><span>時間流速</span><span class="v num" id="nG">—</span></div>
+    <div class="gauge"><span>航向</span><span class="v num" id="nH">—</span></div>
+  </div>
+  <div class="hb" id="sx"><div class="t">六分儀</div><div id="sxText"></div></div>
+  <button class="back hb" id="hudBack">返回</button>
+</section>
+
+<div id="settings" class="hidden" role="dialog" aria-modal="true" aria-labelledby="setH">
+  <div class="panel">
+    <h2 id="setH">設定</h2>
+    <div class="set">
+      <div class="k">黑洞畫面</div>
+      <div class="seg" id="segMode"><button data-v="0">電影模式</button><button data-v="1">科學模式</button></div>
+      <p>電影模式：好似 Interstellar 咁，拎走咗都卜勒效應，吸積盤兩邊一樣光。科學模式：加返都卜勒同引力紅移，向住你轉嘅一邊會光好多、偏藍。</p>
+    </div>
+    <div class="set">
+      <div class="k">畫質</div>
+      <div class="seg" id="segQ"><button data-v="0">流暢</button><button data-v="1">均衡</button><button data-v="2">極致</button></div>
+    </div>
+    <div class="set">
+      <div class="k">鏡頭自動環繞</div>
+      <div class="seg" id="segOrbit"><button data-v="1">開</button><button data-v="0">關</button></div>
+    </div>
+    <button class="back" id="setBack">完成</button>
+  </div>
+</div>
+
+<section id="game" class="hidden" aria-label="遊戲">
+  <canvas id="gc"></canvas>
+  <div id="dust" class="ov"></div><div id="white" class="ov"></div><div id="hurt" class="ov"></div>
+
+  <div id="cd" aria-live="off"><div class="k">地球瓦解倒數</div><div id="cdV" class="num">03:00</div><div id="cdG" class="num">重力 0.72 g</div><div id="cdFF">時間快轉</div></div>
+
+  <div id="ghud" class="hidden">
+    <div class="glass"></div>
+    <svg class="frame" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <path vector-effect="non-scaling-stroke" d="M2.5 20 Q2.5 2.5 20 2.5"/><path vector-effect="non-scaling-stroke" d="M80 2.5 Q97.5 2.5 97.5 20"/><path vector-effect="non-scaling-stroke" d="M97.5 80 Q97.5 97.5 80 97.5"/><path vector-effect="non-scaling-stroke" d="M20 97.5 Q2.5 97.5 2.5 80"/>
+    </svg>
+    <div class="hb" id="gLife">
+      <div class="t">維生</div>
+      <div class="gauge"><span>生命</span><span class="bar"><i class="f" id="hpFill"></i></span><span class="v num" id="hpv">100</span></div>
+      <div class="gauge"><span>氧氣</span><span class="bar"><i class="f" style="transform:scaleX(.96)"></i></span><span class="v num">96%</span></div>
+      <div class="gauge" id="heatRow"><span>太空衣溫度</span><span class="bar"><i class="f" id="heatFill" style="transform:scaleX(0)"></i></span><span class="v num" id="heatv">0%</span></div>
+    </div>
+    <div class="hb" id="gClk">
+      <div class="clk ship"><span class="k">船上時間</span><span class="v num" id="gShip">06:21:00</span></div>
+      <div class="clk cosmos"><span class="k">宇宙時間</span><span class="v num" id="gCos">06:21:00</span></div>
+      <div class="dr num">引力同速度令你慢咗 <b id="gDrift">0</b></div>
+    </div>
+  </div>
+  <div id="bodyHp"><div class="gauge"><span>生命</span><span class="bar"><i class="f" id="bodyHpFill"></i></span></div></div>
+  <div id="obj"></div>
+  <div id="hint"></div>
+  <div id="prompt"></div>
+
+  <div id="ahud" class="hidden">
+    <div class="ah" id="ahAlt">
+      <div class="t" id="aAltK">高度</div>
+      <div id="aAlt" class="num">0.00 km</div>
+      <div class="sub num"><span>速度</span><span id="aSpd">0 m/s</span><span class="atm">護盾容許</span><span class="atm" id="aMax">60 m/s</span></div>
+    </div>
+    <div class="ah" id="ahSuit">
+      <div class="t">RJ-7 同太空衣</div>
+      <div class="gauge" id="aHpRow"><span>生命</span><span class="bar"><i class="f" id="aHpFill"></i></span><span class="v num" id="aHp">100</span></div>
+      <div class="gauge atm" id="aShRow"><span>等離子護盾</span><span class="bar"><i class="f" id="aShFill" style="transform:scaleX(0)"></i></span><span class="v num" id="aSh">0 kW/m²</span></div>
+    </div>
+    <div class="ah atm" id="ahBar"><div class="col"><i id="aBarFill"></i></div>
+      <span class="tk top" style="bottom:100%">100 km　太空</span><span class="tk" style="bottom:75%">10 km</span><span class="tk" style="bottom:50%">1 km</span>
+    </div>
+  </div>
+  <div id="rockWarn"></div>
+  <div id="vhud" class="hidden">
+    <div class="vb">
+      <div class="t">晨星號　往火星　<span id="vPhase">加速</span></div>
+      <div id="vDist" class="num">1.05 億 km</div>
+      <div class="vtrack"><i class="mid"></i><i id="vMk"></i></div>
+      <div class="sub num"><span>速度</span><span id="vSpd">0 km/s</span><span>推力</span><span id="vG">2.0 g</span><span>航程</span><span id="vEl">00:00:00</span><span>萊拉延遲</span><span id="vLag">5 分 51 秒</span></div>
+      <div id="vRate" class="num"></div>
+    </div>
+  </div>
+  <div id="chud" class="hidden">
+    <div class="r"><span>生命</span><div class="b"><i id="cHp"></i></div></div>
+    <div class="r"><span>體力</span><div class="b"><i id="cSta"></i></div></div>
+    <div class="r" id="cHeatRow"><span>熱量</span><div class="b"><i id="cHeat"></i></div></div>
+    <div id="cHeals">治療針 ×3</div>
+  </div>
+  <div id="scrimTop"></div><div id="ebars"></div><div id="pois"></div><div id="scanRing"></div>
+  <div id="lockR"></div>
+  <div id="critP"><b>攻擊</b>致命一擊</div>
+  <div id="died"><div class="t">倒下</div><div class="s">返回最後休息點</div></div>
+  <div id="fade"></div>
+  <div id="wp" class="hidden"><i class="arr"></i><i class="dia"></i><div class="lb"><b>晨星號</b><span id="wpD" class="num"></span></div></div>
+
+  <div id="touchSurface"></div>
+  <div id="joyBase"><div id="joyKnob"></div></div>
+  <div id="tcWalk">
+    <button class="tbtn" id="bJump" data-act="jump">跳</button>
+    <button class="tbtn" id="bDodge" data-act="dodge">翻滾</button>
+    <button class="tbtn hidden" id="bInteract" data-act="interact">互動</button>
+  </div>
+  <div id="tcFight">
+    <button class="tbtn" id="kA" data-act="attack">攻擊</button>
+    <button class="tbtn" id="kH" data-act="heavy">重擊</button>
+    <button class="tbtn" id="kD" data-act="dodge">翻滾</button>
+    <button class="tbtn" id="kB" data-act="block">格擋</button>
+    <button class="tbtn sm" id="kJ" data-act="jump">跳</button>
+    <button class="tbtn sm" id="kL" data-act="lock">鎖定</button>
+    <button class="tbtn sm" id="kHeal" data-act="heal">治療</button>
+    <button class="tbtn sm" id="kS" data-act="scope">掃描</button>
+    <button class="tbtn sm" id="kF" data-act="fly">飛</button>
+  </div>
+  <div id="tcFly">
+    <button class="tbtn" id="fUp" data-act="rise">上升</button>
+    <button class="tbtn" id="fDn" data-act="sink">下降</button>
+    <button class="tbtn" id="fBoost" data-act="boost">衝</button>
+  </div>
+  <button id="bPause" aria-label="暫停"></button>
+
+  <div class="bar-t"></div><div class="bar-b"></div>
+  <div id="timeLabel">時間加快 ×60</div>
+  <div id="say" aria-live="polite"><div class="who"><span id="sayWho"></span><span id="sayDelay"></span></div><p id="sayText"></p></div>
+
+  <section id="endT" aria-label="序章完結">
+    <div class="in">
+      <p class="mark">BEYOND THE HORIZON</p>
+      <h2 class="cn">視界之外</h2>
+      <p class="line" id="endTline">第一章　火星</p>
+      <nav class="menu"><button id="eAgain">由上個進度再開始</button><button id="eTitle">返回標題</button></nav>
+    </div>
+  </section>
+  <div id="chapter"><div class="d" id="chapterD">公元 3385 年 4 月 12 日　清晨 6 時 21 分</div><div class="p" id="chapterP">地球最後三分鐘</div></div>
+  <div id="fade" class="ov"></div><div id="flash" class="ov"></div>
+
+  <div id="pause" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="pauseH">
+    <div class="panel">
+      <h2 id="pauseH">暫停</h2>
+      <p id="pNext">跟住琥珀色標記飛去<b>晨星號</b>。登船之後，下一站係火星（製作中）。</p>
+      <div class="acts"><button id="pResume">繼續</button><button id="pRetry">由檢查點重新嚟過</button><button id="pTitle">返回標題</button></div>
+      <div class="keys">
+        <b>WASD</b><span>行走</span><b>拖曳滑鼠</b><span>轉鏡頭</span>
+        <b>R</b><span>跑</span><b>空白鍵</b><span>跳</span>
+        <b>Shift　K</b><span>翻滾，避開隕石</span><b>E</b><span>互動</span>
+        <b>飛行 WASD</b><span>向鏡頭方向飛</span><b>飛行 空白鍵　C</b><span>上升　下降</span>
+        <b>飛行 Shift</b><span>衝刺</span><b>Esc</b><span>暫停</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="toast" role="status"></div>
+<div id="nogl" class="hidden">呢部裝置唔支援 WebGL2，顯示唔到黑洞畫面。<br>請用新版 Chrome、Safari 或 Edge 開。</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const canvas = $('c');
+const gl = canvas.getContext('webgl2', {antialias:false, alpha:false, powerPreference:'high-performance'});
+if (!gl) { $('nogl').classList.remove('hidden'); return; }
+
+/* ---------------- shaders ---------------- */
+const VS = `#version 300 es
+in vec2 p; void main(){ gl_Position = vec4(p,0.0,1.0); }`;
+
+const SCENE = `#version 300 es
+precision highp float;
+out vec4 frag;
+uniform vec2 uRes; uniform vec2 uCenter; uniform float uTime;
+uniform vec3 uCam, uRight, uUp, uFwd; uniform float uTan;
+uniform float uSci; uniform int uSteps; uniform float uExpo;
+const float RIN = 3.0;   // ISCO = 6M = 3 Rs (Schwarzschild)
+const float ROUT = 12.0;
+
+vec3 hash33(vec3 p){ p = fract(p*vec3(.1031,.1030,.0973)); p += dot(p, p.yxz+33.33); return fract((p.xxy+p.yxx)*p.zyx); }
+float hash13(vec3 p){ p = fract(p*.1031); p += dot(p, p.zyx+31.32); return fract((p.x+p.y)*p.z); }
+float vnoise(vec3 p){
+  vec3 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+  float a=hash13(i), b=hash13(i+vec3(1,0,0)), c=hash13(i+vec3(0,1,0)), d=hash13(i+vec3(1,1,0));
+  float e=hash13(i+vec3(0,0,1)), g=hash13(i+vec3(1,0,1)), h=hash13(i+vec3(0,1,1)), k=hash13(i+vec3(1,1,1));
+  return mix(mix(mix(a,b,f.x),mix(c,d,f.x),f.y), mix(mix(e,g,f.x),mix(h,k,f.x),f.y), f.z);
+}
+float fbm(vec3 p){ float s=0.0, a=0.5; for(int i=0;i<4;i++){ s+=a*vnoise(p); p*=2.03; a*=0.5; } return s; }
+
+vec3 blackbody(float K){
+  float t = clamp(K, 1000.0, 40000.0)/100.0; vec3 c;
+  if (t <= 66.0){ c.r = 1.0; c.g = clamp(0.39008158*log(t) - 0.63184144, 0.0, 1.0); }
+  else { c.r = clamp(1.29293619*pow(t-60.0, -0.13320476), 0.0, 1.0); c.g = clamp(1.12989086*pow(t-60.0, -0.07551485), 0.0, 1.0); }
+  if (t >= 66.0) c.b = 1.0; else if (t <= 19.0) c.b = 0.0; else c.b = clamp(0.54320679*log(t-10.0) - 1.19625409, 0.0, 1.0);
+  return c;
+}
+
+vec3 stars(vec3 d, float shift){
+  vec3 col = vec3(0.0);
+  for (int l=0; l<3; l++){
+    float N = l==0 ? 40.0 : (l==1 ? 95.0 : 210.0);
+    vec3 p = d*N, c = floor(p), h = hash33(c);
+    float dist = length(p - (c + h));
+    float b = pow(hash13(c+11.7), l==0 ? 9.0 : 16.0) * (l==0 ? 9.0 : 4.0);
+    float s = smoothstep(0.075, 0.0, dist) * b;
+    float K = mix(3200.0, 12000.0, pow(hash13(c+3.3), 1.5)) * shift;
+    col += blackbody(K) * s;
+  }
+  vec3 pole = normalize(vec3(0.32, 0.9, -0.28));
+  float lat = dot(d, pole);
+  float band = exp(-lat*lat/0.03);
+  float dust = fbm(d*5.0 + 3.0);
+  col += vec3(0.62,0.56,0.5) * band * (0.012 + 0.05*smoothstep(0.35, 0.8, dust)) * shift;
+  return col;
+}
+
+vec4 disk(vec3 p, vec3 v, float lapseCam){
+  float r = length(p.xz);
+  float phi = atan(p.z, p.x);
+  float omega = 0.70710678 * pow(r, -1.5);          // Kepler, M = 0.5 Rs
+  float a = phi - omega * uTime * 6.0;
+  vec2 cs = vec2(cos(a), sin(a));
+  float lr = log(r);
+  float n = fbm(vec3(cs*2.2, lr*7.0)) * 0.7 + fbm(vec3(cs*9.0, lr*22.0)) * 0.45;
+  float x = RIN / r;
+  float T = pow(x, 0.75) * pow(max(1.0 - sqrt(x), 0.0), 0.25) / 0.4883; // thin disk, peak = 1 near r = 4.08
+  float edge = smoothstep(RIN, RIN + 0.35, r) * smoothstep(ROUT, ROUT - 6.0, r);
+  float dens = edge * clamp(0.35 + 0.85*n, 0.0, 1.2);
+
+  // Doppler + gravitational shift (static-frame construction)
+  float rr = length(p);
+  float beta = sqrt(0.5 / (rr - 1.0));
+  float gam = inversesqrt(1.0 - beta*beta);
+  vec3 vdir = vec3(-sin(phi), 0.0, cos(phi));
+  vec3 rh = p / rr;
+  float vr = dot(v, rh);
+  vec3 vt = v - vr*rh;
+  vec3 nloc = normalize(vr*rh + vt*sqrt(1.0 - 1.0/rr));
+  float cosA = dot(vdir, -nloc);
+  float g = sqrt(1.0 - 1.0/rr) / (gam * (1.0 - beta*cosA)) / lapseCam;
+  g = mix(1.0, g, uSci);
+
+  vec3 c;
+  if (uSci > 0.5){
+    float K = (1600.0 + 4400.0*T) * g;
+    c = blackbody(K) * pow(g, 4.0) * (0.05 + 0.8*T*T);
+  } else {
+    vec3 warm = vec3(1.0, 0.46, 0.16), hot = vec3(1.0, 0.82, 0.58);   // gold-white, never clipped to flat white
+    c = mix(warm, hot, smoothstep(0.25, 0.95, T)) * (0.07 + 1.05*T*T);
+  }
+  float alpha = clamp(dens * 0.85, 0.0, 0.92);
+  return vec4(c * dens, alpha);
+}
+
+vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
+
+void main(){
+  vec2 uv = (gl_FragCoord.xy - uRes*uCenter) / min(uRes.x, uRes.y) * 2.0;
+  vec3 dir = normalize(uFwd + uv.x*uTan*uRight + uv.y*uTan*uUp);
+  vec3 pos = uCam;
+  float R = length(pos);
+  vec3 rhat = pos / R;
+  float lapseCam = sqrt(max(1.0 - 1.0/R, 1e-4));
+  // static observer: local angle -> geodesic with b = R sin(a) / sqrt(1 - Rs/R)
+  float cr = dot(dir, rhat);
+  vec3 vel = cr*rhat + (dir - cr*rhat) / lapseCam;
+  vec3 hv = cross(pos, vel);
+  float h2 = dot(hv, hv);
+
+  float b = sqrt(h2);
+  float ring = exp(-pow((b - 2.5980762) / 0.022, 2.0));
+  vec3 col = vec3(0.0); float alpha = 0.0; bool captured = false;
+  for (int i=0; i<480; i++){
+    if (i >= uSteps) break;
+    float r = length(pos);
+    float dt = clamp(0.07*(r - 0.92), 0.004, 2.5);
+    vec3 acc = -1.5*h2*pos / pow(r, 5.0);
+    vec3 np = pos + vel*dt + 0.5*acc*dt*dt;
+    float nr = length(np);
+    vec3 nacc = -1.5*h2*np / pow(nr, 5.0);
+    vec3 nv = vel + 0.5*(acc + nacc)*dt;
+    if (pos.y * np.y < 0.0){
+      float t = pos.y / (pos.y - np.y);
+      vec3 hp = mix(pos, np, t);
+      float hr = length(hp.xz);
+      if (hr > RIN && hr < ROUT){
+        vec4 e = disk(hp, normalize(mix(vel, nv, t)), lapseCam);
+        col += (1.0 - alpha) * e.rgb;
+        alpha += (1.0 - alpha) * e.a;
+      }
+    }
+    pos = np; vel = nv;
+    if (nr < 1.0) { captured = true; break; }
+    if (nr > 90.0 && dot(pos, vel) > 0.0) break;
+    if (alpha > 0.985) break;
+  }
+  if (!captured){
+    float shift = mix(1.0, 1.0/lapseCam, uSci);
+    col += (1.0 - alpha) * stars(normalize(vel), shift) * mix(1.0, min(pow(1.0/lapseCam, 3.0), 30.0), uSci);
+  }
+  vec3 ringC = uSci > 0.5 ? vec3(1.0, 0.86, 0.7) : vec3(1.0, 0.8, 0.55);
+  col += ringC * ring * 0.35;
+  col = aces(col * uExpo);
+  frag = vec4(pow(col, vec3(1.0/2.2)), 1.0);
+}`;
+
+const POST = `#version 300 es
+precision highp float;
+out vec4 frag;
+uniform sampler2D uTex; uniform vec2 uRes; uniform float uTime;
+vec3 bright(vec2 uv){ vec3 c = texture(uTex, uv).rgb; float l = dot(c, vec3(0.299,0.587,0.114)); return c * smoothstep(0.62, 1.0, l); }
+void main(){
+  vec2 uv = gl_FragCoord.xy / uRes;
+  vec3 c = texture(uTex, uv).rgb;
+  vec3 glow = vec3(0.0);
+  float asp = uRes.x / uRes.y;
+  for (int i=0; i<12; i++){
+    float a = float(i) * 0.5235988;
+    vec2 o = vec2(cos(a)/asp, sin(a));
+    glow += bright(uv + o*0.012) * 0.6 + bright(uv + o*0.035) * 0.4;
+  }
+  c += glow / 12.0 * 0.55;
+  vec2 q = uv - 0.5; q.x *= asp;
+  c *= 1.0 - 0.38*smoothstep(0.45, 1.15, length(q));
+  float n = fract(sin(dot(gl_FragCoord.xy + uTime*61.0, vec2(12.9898, 78.233))) * 43758.5453);
+  c += (n - 0.5) * 0.018;
+  frag = vec4(c, 1.0);
+}`;
+
+function compile(type, src){
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+function program(fs){
+  const p = gl.createProgram();
+  gl.attachShader(p, compile(gl.VERTEX_SHADER, VS)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+  gl.bindAttribLocation(p, 0, 'p'); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (let i=0;i<n;i++){ const info = gl.getActiveUniform(p, i); u[info.name] = gl.getUniformLocation(p, info.name); }
+  return {p, u};
+}
+let sceneP, postP;
+try { sceneP = program(SCENE); postP = program(POST); }
+catch (e) { console.error(e); $('nogl').textContent = '黑洞畫面載入失敗：' + e.message; $('nogl').classList.remove('hidden'); return; }
+
+const vbo = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+const tex = gl.createTexture(), fbo = gl.createFramebuffer();
+let rw = 0, rh = 0;
+function allocTarget(w, h){
+  if (w === rw && h === rh) return; rw = w; rh = h;
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+}
+
+/* ---------------- state ---------------- */
+const store = {
+  get(k, d){ try { const v = localStorage.getItem('bth.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v){ try { localStorage.setItem('bth.' + k, JSON.stringify(v)); } catch (e) {} }
+};
+const QUAL = [{scale:.42, steps:170}, {scale:.62, steps:260}, {scale:.95, steps:380}];
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const S = {
+  sci: store.get('sci', 0), q: store.get('q', 1), orbit: store.get('orbit', reduce ? 0 : 1),
+  R: 30, Rtarget: 30, az: 0.6, el: 0.075, view: 'title',
+  ship: 6*3600 + 21*60, cosmos: 6*3600 + 21*60, dyn: 1
+};
+
+/* ---------------- camera ---------------- */
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t*t*(3 - 2*t); };
+function camBasis(){
+  const el = Math.max(-1.25, Math.min(1.25, S.el + (S.view === 'observe' ? 0.5 * smooth(12, 2, S.R) : 0)));
+  const ce = Math.cos(el), se = Math.sin(el);
+  const cam = [S.R*ce*Math.cos(S.az), S.R*se, S.R*ce*Math.sin(S.az)];
+  const len = Math.hypot(...cam);
+  const fwd = cam.map(v => -v/len);
+  // right = fwd x worldUp, up = right x fwd
+  let right = [-fwd[2], 0, fwd[0]]; const rl = Math.hypot(...right) || 1; right = right.map(v => v/rl);
+  const up = [right[1]*fwd[2]-right[2]*fwd[1], right[2]*fwd[0]-right[0]*fwd[2], right[0]*fwd[1]-right[1]*fwd[0]];
+  return {cam, fwd, right, up};
+}
+
+/* ---------------- render loop ---------------- */
+let last = performance.now(), tAcc = 0, frames = 0, ftSum = 0;
+function lapse(r){ return Math.sqrt(Math.max(1 - 1/r, 1e-6)); }
+function center(){
+  const portrait = innerHeight > innerWidth;
+  if (S.view === 'observe') return portrait ? [0.5, 0.66] : [0.58, 0.5];
+  if (S.view === 'hud') return [0.5, 0.5];
+  return portrait ? [0.5, 0.7] : [0.66, 0.52];
+}
+function fov(){
+  if (S.view === 'title') return 17;
+  if (S.view === 'hud') return 24;
+  return 24 + 34 * smooth(12, 1.5, S.R);   // helmet widens its view as the hole fills the sky
+}
+let titleRun = true;
+function frame(now){
+  if (!titleRun) return;
+  const dt = Math.min((now - last) / 1000, 0.1); last = now;
+  if (!reduce || S.view !== 'title') tAcc += dt;
+  if (S.orbit && !dragging) S.az += dt * 0.025;
+  S.R += (S.Rtarget - S.R) * Math.min(1, dt * 3);
+
+  // clocks: ship = proper time of a static observer at R; cosmos = far-away time
+  const f = 1 / lapse(S.R);
+  S.ship += dt; S.cosmos += dt * f;
+  updateClocks(f);
+
+  const q = QUAL[S.q];
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const W = Math.round(innerWidth * dpr), H = Math.round(innerHeight * dpr);
+  if (canvas.width !== W || canvas.height !== H){ canvas.width = W; canvas.height = H; }
+  const sc = q.scale * S.dyn;
+  const w = Math.max(160, Math.round(W * sc)), h = Math.max(90, Math.round(H * sc));
+  allocTarget(w, h);
+
+  const b = camBasis();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0, 0, w, h);
+  gl.useProgram(sceneP.p); const u = sceneP.u;
+  gl.uniform2f(u.uRes, w, h); gl.uniform2f(u.uCenter, ...center()); gl.uniform1f(u.uTime, tAcc);
+  gl.uniform3f(u.uCam, ...b.cam); gl.uniform3f(u.uRight, ...b.right); gl.uniform3f(u.uUp, ...b.up); gl.uniform3f(u.uFwd, ...b.fwd);
+  gl.uniform1f(u.uTan, Math.tan(fov() * Math.PI/180)); gl.uniform1f(u.uSci, S.sci); gl.uniform1i(u.uSteps, q.steps);
+  gl.uniform1f(u.uExpo, S.sci ? 0.5 : 0.74);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H);
+  gl.useProgram(postP.p);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.uniform1i(postP.u.uTex, 0); gl.uniform2f(postP.u.uRes, W, H); gl.uniform1f(postP.u.uTime, tAcc);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  // dynamic resolution: keep frame time near 33 ms
+  ftSum += dt; frames++;
+  if (frames >= 30){
+    const avg = ftSum / frames; frames = 0; ftSum = 0;
+    if (avg > 0.038 && S.dyn > 0.55) S.dyn *= 0.88;
+    else if (avg < 0.022 && S.dyn < 1) S.dyn = Math.min(1, S.dyn * 1.06);
+  }
+  if (S.view === 'hud') updateHud(f, b);
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- clocks + readouts ---------------- */
+const fmt = s => { s = Math.floor(s); const h = Math.floor(s/3600) % 24, m = Math.floor(s/60) % 60, x = s % 60;
+  return [h, m, x].map(v => String(v).padStart(2, '0')).join(':'); };
+const fmtSpan = s => { s = Math.max(0, Math.floor(s));
+  const d = Math.floor(s/86400), h = Math.floor(s/3600)%24, m = Math.floor(s/60)%60, x = s%60;
+  const t = [h, m, x].map(v => String(v).padStart(2, '0')).join(':');
+  return d ? d + ' 日 ' + t : t; };
+let lastTxt = '';
+function updateClocks(f){
+  $('shipT').textContent = fmt(S.ship);
+  $('cosT').textContent = fmt(S.cosmos);
+  const lead = S.cosmos - S.ship;
+  const txt = lead >= 1 ? '宇宙行快咗 ' + fmtSpan(lead) : '';
+  if (txt !== lastTxt){ $('drift').innerHTML = txt ? '宇宙行快咗 <b>' + fmtSpan(lead) + '</b>' : ''; lastTxt = txt; }
+  if (S.view === 'observe') updateReadout(f);
+}
+function shadowDeg(r){
+  // angular diameter of the shadow for a static observer at r (in Rs)
+  const s = Math.min(1, (3*Math.sqrt(3)/2) * Math.sqrt(1 - 1/r) / r);
+  const a = r >= 1.5 ? Math.asin(s) : Math.PI - Math.asin(s);
+  return 2 * a * 180 / Math.PI;
+}
+function updateReadout(f){
+  $('rR').textContent = S.R.toFixed(2) + ' Rs';
+  $('rG').textContent = '你嘅 1 秒 = 宇宙 ' + (f < 10 ? f.toFixed(3) : f.toFixed(1)) + ' 秒';
+  const sd = shadowDeg(S.R);
+  $('rS').textContent = sd > 180 ? '佔咗大半個天空（' + sd.toFixed(0) + '°）' : sd.toFixed(1) + '°';
+  $('rM').textContent = S.sci ? '科學模式' : '電影模式';
+  placeKnob();
+}
+
+/* ---------------- distance dial (log scale) ---------------- */
+const RMIN = 1.05, RMAX = 40;
+const toT = r => Math.log(r - 1) / Math.log(RMAX - 1);            // 0..1 bottom..top (log of distance above horizon)
+const fromT = t => 1 + Math.exp(t * Math.log(RMAX - 1));
+const TMIN = toT(RMIN);
+(function buildTicks(){
+  const box = $('ticks');
+  [1.1, 1.25, 1.5, 2, 3, 5, 8, 12, 20, 30, 40].forEach(r => {
+    const i = document.createElement('i');
+    if ([1.5, 3, 12, 40].includes(r)) i.className = 'm';
+    i.style.top = (100 - (toT(r) - TMIN) / (1 - TMIN) * 100) + '%'; box.appendChild(i);
+  });
+})();
+function placeKnob(){
+  const p = (toT(S.Rtarget) - TMIN) / (1 - TMIN);
+  const top = (100 - p * 100) + '%';
+  $('knob').style.top = top; $('knobv').style.top = top; $('knobv').textContent = S.Rtarget.toFixed(S.Rtarget < 3 ? 2 : 1);
+  $('track').setAttribute('aria-valuenow', S.Rtarget.toFixed(2));
+}
+function setR(r){ S.Rtarget = Math.min(RMAX, Math.max(RMIN, r)); placeKnob(); }
+(function dial(){
+  const tr = $('track'); let on = false;
+  const at = e => { const b = tr.getBoundingClientRect(); const p = 1 - Math.min(1, Math.max(0, (e.clientY - b.top) / b.height));
+    setR(fromT(TMIN + p * (1 - TMIN))); };
+  tr.addEventListener('pointerdown', e => { on = true; tr.setPointerCapture(e.pointerId); at(e); e.stopPropagation(); });
+  tr.addEventListener('pointermove', e => { if (on) at(e); });
+  tr.addEventListener('pointerup', () => on = false);
+  tr.addEventListener('keydown', e => {
+    const t = toT(S.Rtarget);
+    if (e.key === 'ArrowUp') { setR(fromT(Math.min(1, t + 0.03))); e.preventDefault(); }
+    if (e.key === 'ArrowDown') { setR(fromT(Math.max(TMIN, t - 0.03))); e.preventDefault(); }
+  });
+})();
+
+/* ---------------- drag to look ---------------- */
+let dragging = false, px = 0, py = 0;
+canvas.addEventListener('pointerdown', e => { dragging = true; px = e.clientX; py = e.clientY; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  S.az -= (e.clientX - px) * 0.004; S.el = Math.max(-1.2, Math.min(1.2, S.el + (e.clientY - py) * 0.003));
+  px = e.clientX; py = e.clientY;
+});
+const endDrag = () => dragging = false;
+canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
+canvas.addEventListener('wheel', e => { if (S.view === 'observe') setR(fromT(Math.min(1, Math.max(TMIN, toT(S.Rtarget) - e.deltaY * 0.0006)))); }, {passive:true});
+
+/* ---------------- views ---------------- */
+function show(view){
+  S.view = view;
+  document.body.className = 'v-' + view;
+  $('title').classList.toggle('hidden', view !== 'title');
+  $('observe').classList.toggle('hidden', view !== 'observe');
+  $('hud').classList.toggle('hidden', view !== 'hud');
+  if (view === 'observe') updateReadout(1/lapse(S.R));
+  if (view === 'hud') bootHud();
+  if (view === 'title') setR(30);
+}
+let toastT;
+function toast(msg){ const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2600); }
+/* ---------------- prologue launch ---------------- */
+const CP_NAMES = { shop: '星環太空衣', nasa: 'NASA 發射站', space: '太空', voyage: '晨星號', orbit: '火星軌道', mars: '火星', marsx: '火星　探索' };
+function paintStart(){
+  const sv = store.get('cp2', null), name = sv && CP_NAMES[sv.cp];
+  $('bStart').innerHTML = name ? '繼續旅程<span class="e">' + name + '</span>' : '開始旅程<span class="e">序章</span>';
+  $('bNew').classList.toggle('hidden', !name);
+}
+paintStart();
+let gameMod = null, booting = false;
+async function launch(fresh){
+  if (booting) return; booting = true;
+  try { window.__bthAC = window.__bthAC || new (window.AudioContext || window.webkitAudioContext)(); window.__bthAC.resume(); } catch (e) {}
+  if (fresh) store.set('cp2', null);
+  toast('載入緊……');
+  try { gameMod = gameMod || await import('./js/game.js'); }
+  catch (e) { booting = false; console.error(e); toast('載入唔到遊戲，檢查網絡再試'); return; }
+  titleRun = false; $('toast').classList.remove('on');
+  $('game').classList.remove('hidden'); document.body.classList.add('ingame');
+  try {
+    gameMod.startGame({ quality: S.q, audioCtx: window.__bthAC, onExit: restart => {
+      $('game').classList.add('hidden'); booting = false;
+      if (restart) { launch(true); return; }
+      show('title'); paintStart(); titleRun = true; last = performance.now(); requestAnimationFrame(frame);
+    } });
+  } catch (e) {
+    console.error(e); booting = false; $('game').classList.add('hidden'); show('title'); titleRun = true; last = performance.now(); requestAnimationFrame(frame);
+    toast('遊戲開唔到：' + e.message);
+  }
+}
+$('bStart').addEventListener('click', () => launch(false));
+$('bNew').addEventListener('click', () => launch(true));
+$('bObserve').addEventListener('click', () => show('observe'));
+$('bHud').addEventListener('click', () => show('hud'));
+$('obsBack').addEventListener('click', () => show('title'));
+$('hudBack').addEventListener('click', () => show('title'));
+addEventListener('keydown', e => {
+  if (e.key === 'Escape'){ if (!$('settings').classList.contains('hidden')) closeSet(); else if (S.view !== 'title') show('title'); }
+});
+
+/* ---------------- settings ---------------- */
+function seg(id, val, cb){
+  const box = $(id);
+  const paint = v => box.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.v === v)));
+  paint(val);
+  box.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const v = +b.dataset.v; paint(v); cb(v); });
+}
+seg('segMode', S.sci, v => { S.sci = v; store.set('sci', v); toast(v ? '科學模式：加返都卜勒同引力紅移' : '電影模式：冇都卜勒光暗'); });
+seg('segQ', S.q, v => { S.q = v; S.dyn = 1; store.set('q', v); });
+seg('segOrbit', S.orbit, v => { S.orbit = v; store.set('orbit', v); });
+let setFrom = null;
+function openSet(){ setFrom = document.activeElement; $('settings').classList.remove('hidden'); $('segMode').querySelector('[aria-pressed=true]').focus(); }
+function closeSet(){ $('settings').classList.add('hidden'); if (setFrom) setFrom.focus({preventScroll:true}); }
+$('bSet').addEventListener('click', openSet); $('setBack').addEventListener('click', closeSet);
+
+/* ---------------- HUD preview ---------------- */
+(function tape(){
+  const box = $('tapeIn');
+  for (let d = -360; d <= 720; d += 5){
+    const s = document.createElement('span'); s.style.left = (d * 4) + 'px';
+    if (d % 30 === 0){ s.className = 'm'; const em = document.createElement('em'); em.style.left = (d*4) + 'px';
+      em.textContent = String(((d % 360) + 360) % 360).padStart(3, '0'); box.appendChild(em); }
+    box.appendChild(s);
+  }
+})();
+function bootHud(){
+  const hud = $('hud'); hud.classList.remove('on');
+  const parts = ['life', 'reticle', 'tape', 'nav', 'sx', 'hudBack'];
+  parts.forEach(id => $(id).style.transitionDelay = '0s');
+  requestAnimationFrame(() => {
+    parts.forEach((id, i) => $(id).style.transitionDelay = (reduce ? 0 : 0.25 + i * 0.28) + 's');
+    hud.classList.add('on');
+  });
+  const run = ++sxRun;
+  const f = 1 / lapse(S.R);
+  const lines = ['Suit 系統上線。我係六分儀。',
+                 '偵測到強引力場：前面係一個流浪黑洞。',
+                 '你喺度每過 1 秒，外面宇宙過 ' + f.toFixed(3) + ' 秒。'];
+  const box = $('sxText'); box.textContent = '';
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  (async () => {
+    await wait(reduce ? 0 : 1900);
+    for (const line of lines){
+      for (let k = 1; k <= line.length; k++){
+        if (run !== sxRun || S.view !== 'hud') return;
+        box.textContent = line.slice(0, k);
+        if (!reduce) await wait(45);
+      }
+      await wait(1500);
+    }
+  })();
+}
+let sxRun = 0;
+function updateHud(f, b){
+  const hd = ((Math.atan2(b.fwd[0], -b.fwd[2]) * 180 / Math.PI) + 360) % 360;
+  $('tapeIn').style.transform = 'translateX(' + (($('tape').clientWidth / 2) - hd * 4) + 'px)';
+  $('nH').textContent = String(Math.round(hd)).padStart(3, '0') + '°';
+  $('nR').textContent = S.R.toFixed(1) + ' Rs';
+  $('nG').textContent = '×' + f.toFixed(3);
+  const t = tAcc;
+  const o2 = 87 - (t * 0.02) % 4, heat = 41 + Math.sin(t * 0.3) * 3;
+  $('gO2').style.width = o2 + '%'; $('vO2').textContent = Math.round(o2) + '%';
+  $('gHeat').style.width = heat + '%'; $('vHeat').textContent = Math.round(heat) + '%';
+}
+
+placeKnob();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
